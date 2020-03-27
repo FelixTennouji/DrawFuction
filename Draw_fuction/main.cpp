@@ -2,15 +2,16 @@
 //Good night ,Sion.
 //设定区
 #define _BACKGROUND_COLOR    0x444444//背景色设置
-#define _TEXT_COLOR          0xf3830b//文字
-#define _XY_COLOR            0xacacac//xy轴颜色
-#define _GRID_COLOR          0xffccad//网格颜色
+#define _TEXT_COLOR          0xffffff//xy文字
+#define _XY_COLOR            0xb0f8ff//xy轴颜色
+#define _GRID_COLOR          0x00fff0//网格颜色
 #define _BUTTON_COLOR        0x00a552//按钮颜色
+#define _TEXT0_COLOR         0x0096ff//右边文字0
 #define _LINE_COLOR          0xb86bff//线条颜色
-#define _OTHER_COLOR         0x706678//副区块颜色
-#define _TEXT2_COLOR         0xb8bf48
+#define _OTHER_COLOR         0x706d72//副区块颜色
+#define _TEXT2_COLOR         0xffd200//右边文字1
+#define _TEXT3_COLOR         0xff3c00//右边文字2
 #define _LINE_WIDTH          2
-#define DIFFERENTIAL         0.0001
 
 #include <math.h>//#define M_E   2.71828182845904523536   #define M_PI  3.14159265358979323846
 #include <Windows.h>
@@ -30,6 +31,12 @@
 
 
 static wchar_t infix_expression[128];//未处理的中值表达式子
+struct
+{
+	long long int x;//当前中心点在窗口上的坐标
+	long long int y;
+	short shrink;//放缩    -2~10  x: 0.25~1024  y:0.1875-768
+}_attributes;//绘制图像的属性
 struct {
 	int IsNull;
 	double Max;
@@ -70,6 +77,7 @@ typedef struct __RESULT
 }_point;
 _Expression infix[128];//中缀表达式
 _Expression postfix[128];//逆波兰表达式
+double ratio;
 
 
 
@@ -89,8 +97,9 @@ void calculus(void);
 int USERerror();//只能报一个错误
 _point postfix_operation(double x);
 double _power(double x, double n);
-
-
+void fuctionANDxyDRAW();
+void xyDRAW();
+void fuctionDRAW();
 
 
 //函数定义
@@ -104,6 +113,7 @@ void calculus(void)//这个函数从全局变量读入，因此不需要形参�
 	_point r;
 	double i;
 	double max, min;
+	double differential;
 	double definite_integral=0;//该变量用于累加积分，definite_integral中文意思是定积分
 	InputBox(max_char, 16, TEXT("定积分上限是"), TEXT("请输入定积分上限"), TEXT("0"), 200, 0, true);
 	//inputbox意思是弹出一个可供用户输入的对话框，接受用户输入的字符并将其转换为宽字符串并传给max_char这个宽字符数组的指针，16 意思是我最多接受16个宽字符 ，TEXT（）是一个 可以接受参数的宏，它能够将里面的字符强制转换为unicode字符编码而不是GBK字符编码
@@ -112,20 +122,22 @@ void calculus(void)//这个函数从全局变量读入，因此不需要形参�
 	//std::stod()你们可以你接我一种比较特殊的函数，我们先不讨论两个冒号连一起什么意思。暂时理解成一种函数，可以将传入的宽字符串转换为双精度浮点数
 	InputBox(min_char, 16, TEXT("定积分下限是"), TEXT("请输入定积分下限"), TEXT("0"), 200, 0, true);
 	min = std::stod(min_char);
+	InputBox(min_char, 16, TEXT("定积分精度是"), TEXT(""), TEXT("0.0001"), 200, 0, true);
+	differential= std::stod(min_char);
 	if (max > min)
 	{
-		for (i = min; i <= max; i += DIFFERENTIAL )
+		for (i = min; i <= max; i +=differential )
 		{
 			r = postfix_operation(i);
-			definite_integral = definite_integral + r.y * DIFFERENTIAL ;
+			definite_integral = definite_integral + r.y * differential;
 		}
 	}
 	else if (min > max)
 	{
-		for (i = max; i <= min; i += DIFFERENTIAL )
+		for (i = max; i <= min; i += differential)
 		{
 			r = postfix_operation(i);
-			definite_integral = definite_integral + r.y * DIFFERENTIAL ;
+			definite_integral = definite_integral + r.y * differential;
 		}
 		definite_integral = -definite_integral;
 
@@ -143,33 +155,286 @@ void calculus(void)//这个函数从全局变量读入，因此不需要形参�
 	//TEXT("积分")是我提供给他的标题
 	// MB_ICONINFORMATION | MB_SYSTEMMODAL | MB_YESNO  代表弹窗含有一个i图标 | 置于所有Windows窗口最前 |拥有yes和 no 两个按钮
 }
+void fuctionANDxyDRAW()
+{
+	wchar_t  a[16];
+	BeginBatchDraw();
+	setfillcolor(_BACKGROUND_COLOR);
+	solidrectangle(0,0,800,600);
+	
+	xyDRAW();
+	fuctionDRAW();
+	setfillcolor(_OTHER_COLOR);
+	solidrectangle(800, 0, 900, 600);
+	setfillcolor(_BUTTON_COLOR);
+	solidrectangle(800, 550, 900, 600);
+	settextcolor(_TEXT0_COLOR);
+	settextstyle(20, 0, _T("黑体"));
+	setbkmode(TRANSPARENT);
+	outtextxy(815, 570, _T("计算积分"));
+	settextstyle(15, 0, _T("黑体"));
+	outtextxy(800, 400, _T("右击右处的空"));
+	outtextxy(800, 420, _T("白地方，来重"));
+	outtextxy(800, 440, _T("新输入函数式"));
+	settextcolor(_TEXT2_COLOR);
+	settextstyle(16, 0, _T("黑体"));
+	outtextxy(810, 100, _T("放缩比例:"));
+	setbkmode(OPAQUE);
+	setfillcolor(_OTHER_COLOR);
+	solidrectangle(800, 120, 900, 200);
+	settextstyle(18, 0, _T("Consolas"));
+	settextcolor(_TEXT3_COLOR);
+	swprintf(a, L"x%.1f", _power(2, _attributes.shrink));
+	setbkmode(TRANSPARENT);
+	outtextxy(805, 125, a);
+	setbkmode(OPAQUE);
+	FlushBatchDraw();
+}
+void xyDRAW()
+{
+	int Xn[8], Yn[6];
+	int Xm, Ym;
+	int Xf, Yf;
+	short b;
+	short k;
+	wchar_t* w = new wchar_t[16];
+	//x
+	setlinecolor(_XY_COLOR);
+	setlinestyle(PS_SOLID | PS_ENDCAP_SQUARE, 3);
+	if (_attributes.y <= 50)
+	{
+		line(0, 50, 800, 50);
+		Yf = 50;
+	}
+	else if (_attributes.y > 50 && _attributes.y < 550)
+	{
+		line(0, _attributes.y, 800, _attributes.y);
+		Yf = _attributes.y;
+
+	}
+	else
+	{
+		line(0, 550, 800, 550);
+		Yf = 550;
+	}
+	if (_attributes.x <= 50)
+	{
+		line(50, 0, 50, 600);
+		Xf = 50;
+	}
+	else if (_attributes.x > 50 && _attributes.x < 750)
+	{
+		line(_attributes.x, 0, _attributes.x, 600);
+		Xf = _attributes.x;
+	}
+	else
+	{
+		line(750, 0, 750, 600);
+		Xf = 750;
+	}
+
+	Xm = -1;
+	do
+	{
+		Xm++;
+		b = (_attributes.x - Xm) % 100;
+
+	} while (!(Xm > 99 || b == 0));
+	Xn[0] = Xm;
+	for (k = 1; k <= 7; k++)
+		Xn[k] = Xn[k - 1] + 100;
+	Ym = -1;
+	do
+	{
+		Ym++;
+		b = (_attributes.y - Ym) % 100;
+
+	} while (!(Ym > 99 || b == 0));
+	Yn[0] = Ym;
+	for (k = 1; k <= 5; k++)
+		Yn[k] = Yn[k - 1] + 100;
+
+	setlinecolor(_GRID_COLOR);
+	setlinestyle(PS_DOT | PS_ENDCAP_SQUARE,1);
+	settextstyle(15, 0, _T("Consolas"));
+	settextcolor(_TEXT_COLOR);
+
+	for (k = 0; k <= 7; k++)
+	{
+		line(Xn[k], 0, Xn[k], 600);
+		swprintf(w,L"%.4lf",(double)((Xn[k]-_attributes.x)*ratio));
+		outtextxy(Xn[k], Yf, w);
+	}
+	for (k = 0; k <= 5; k++)
+	{
+		line(0, Yn[k], 800, Yn[k]);
+		swprintf(w, L"%.4lf", (double)((Yn[k] - _attributes.y) * ratio));
+		outtextxy(Xf, Yn[k], w);
+	}
+	delete[] w;
+
+}
+void fuctionDRAW()
+{
+	setfillcolor(_LINE_COLOR);
+	_point fst, sec;
+	long long int fstz, secz;
+	double xz;
+	int xzx = 1;
+	short xzxk=1;
+	int d;
+	xz = (1 - _attributes.x) * ratio;
+	for (; xzx <= 800; xzx++, xz += ratio)
+	{
+		if (_domain.IsNull == 0 || (_domain.IsNull == 1 && (xz >= _domain.Min && xz <= _domain.Max)))
+		{
+			if (xzxk == 1)
+			{
+				xzxk = 0;
+				fst = postfix_operation(xz);
+				if (fst.exist == 1)
+				{
+					fstz = _attributes.y - (long long int)(fst.y / ratio);
+					if (fstz >= 0 && fstz <= 600)
+						solidcircle(xzx, fstz, _LINE_WIDTH);
+				}
+
+			}
+			else
+			{
+				xzxk = 1;
+				sec= postfix_operation(xz+ratio);
+				secz = _attributes.y - (long long int)(sec.y / ratio);
+				if (fst.exist == 1 && sec.exist == 1)
+				{
+					if (fstz >= secz)
+					{
+						d = secz;
+						do
+						{
+							solidcircle(xzx, d, _LINE_WIDTH);
+							d++;
+						} while (d < fstz && (d < 600 && d>0));
+					}
+					else
+					{
+						d = fstz;
+						do
+						{
+							solidcircle(xzx, d, _LINE_WIDTH);
+							d++;
+						} while (d < secz && (d < 600 && d>0));
+					}
+				}
+			}
+		}
+	}
+
+}
 void draw()
 {
 	MOUSEMSG m;
+	_attributes.x = 400;
+	_attributes.y = 300;
+	_attributes.shrink = 3;
+	ratio = 0.02;
+	struct
+	{
+		long long int x;
+		long long int y;
+	}first,second;
+	int k;
+	int dx, dy;
+
+		cleardevice();
+		fuctionANDxyDRAW();
 	while (TRUE)
 	{
-		BeginBatchDraw();
-		cleardevice();
-		setfillcolor(_OTHER_COLOR);
-		solidrectangle(800,0,900,600);
-		setfillcolor(_BUTTON_COLOR);
-		solidrectangle(800, 550, 900, 600);
-		settextcolor(_TEXT_COLOR);
-		settextstyle(20, 0, _T("黑体"));
-		setbkmode(TRANSPARENT);
-		outtextxy(810, 570, _T("计算积分"));
-		setbkmode(OPAQUE);
-		FlushBatchDraw();
+		FlushMouseMsgBuffer();
 		m = GetMouseMsg();
 		if (m.mkLButton && ((m.x > 800 && m.x < 900) && (m.y > 550 && m.y < 600)))
 			calculus();
-		FlushMouseMsgBuffer();
+		else if (m.mkRButton && ((m.x > 800 && m.x < 900) && (m.y > 0 && m.y < 600)))
+		{
+			cleardevice();
+			break;
+		}
+		else if(m.wheel==-120 && ((m.x > 0 && m.x < 800) && (m.y > 0 && m.y < 600)))
+		{
+			if (_attributes.shrink > 10)
+			{
+				MessageBox(NULL, TEXT("放大到极限了"), TEXT("ヽ(*ﾟдﾟ)ノ"), MB_ICONWARNING | MB_SYSTEMMODAL | MB_OK);
+				continue;
+			}
+			_attributes.shrink++;
+			ratio *= 2;
+			dx = (_attributes.x - 400) * 2;
+			dy = (_attributes.y - 300) * 2;
+			_attributes.x = 400 + dx;
+			_attributes.y = 300 + dy;
+			fuctionANDxyDRAW();
+		}
+		else if (m.wheel == 120 && ((m.x > 0 && m.x < 800) && (m.y > 0 && m.y < 600)))
+		{
+			if (_attributes.shrink <0)
+			{
+				MessageBox(NULL, TEXT("缩小到极限了"), TEXT("ヽ(*ﾟдﾟ)ノ"), MB_ICONWARNING | MB_SYSTEMMODAL | MB_OK);
+				continue;
+			}
+			_attributes.shrink--;
+			ratio =ratio/2;
+			dx = (_attributes.x - 400) / 2;
+			dy = (_attributes.y - 300) / 2;
+			_attributes.x = 400 + dx;
+			_attributes.y = 300 + dy;
+			fuctionANDxyDRAW();
+		}
+		else if (m.mkLButton && ((m.x > 0 && m.x < 800) && (m.y > 0 && m.y < 600)))
+		{
+			k = 0;
+			first.x = m.x;
+			first.y = m.y;
+			second.x = m.x;
+			second.y = m.y;
+			do
+			{
+				FlushMouseMsgBuffer();
+				m = GetMouseMsg();
+				if (k == 0)
+				{
+					k = 1;
+					first.x = m.x;
+					first.y = m.y;
+					dx = first.x - second.x;
+					dy = first.y - second.y;
+
+				}
+				else
+				{
+					k = 0;
+					second.x = m.x;
+					second.y = m.y;
+					dx = second.x - first.x;
+					dy = second.y - first.y;
+				}
+				_attributes.x += dx;
+				_attributes.y += dy;
+				fuctionANDxyDRAW();
+			} while (m.mkLButton);
+		}
+		else
+			;
+
 	}
 }
 double _power(double x, double n)//此函数由李剑寒编写
 {
 	double i;
 	double t = 1.0;
+	if (n == 0)
+		return 1.0;
+	if (n == 1)
+		return x;
 	for (i = 1; i <= n; i++)
 	{
 		t *= x;
@@ -452,7 +717,7 @@ void wcharTOinfix()
 void infixTOpostfix()
 {
 	_Expression * stack1 = new _Expression[128];//运算符堆栈
-	memset(stack1, 0, 128 * sizeof(stack1));
+
 	short stack1_cursor = -1;
 	short infix_cursor=0;
 	short postfix_cursor = -1;
@@ -548,7 +813,6 @@ _point postfix_operation(double x)
 	double a, b;
 	double c;//从该栈弹出的两个操作数。	例：a ? b, 先弹出b，后弹出a。[这里abc都可以简化掉，因为逻辑不熟，故没有]
 	_Expression* stack2 = new _Expression[128];
-	memset(stack2, 0, 128 * sizeof(stack2));
 	short postfix_cursor=0;
 	short stack2_cursor = -1;
 
@@ -585,10 +849,11 @@ _point postfix_operation(double x)
 		}
 		else
 		{
-			a = stack2[stack2_cursor - 1].num;
+
 			b= stack2[stack2_cursor ].num;
 			if(postfix[postfix_cursor].num==0)//+
 			{
+				a = stack2[stack2_cursor - 1].num;
 				c = a + b;
 				stack2[stack2_cursor - 1].num = c;
 				stack2_cursor--;
@@ -596,6 +861,7 @@ _point postfix_operation(double x)
 			else if(postfix[postfix_cursor].num == 1)//-
 
 			{
+				a = stack2[stack2_cursor - 1].num;
 				c = a -b;
 				stack2[stack2_cursor - 1].num = c;
 				stack2_cursor--;
@@ -603,6 +869,7 @@ _point postfix_operation(double x)
 			else if (postfix[postfix_cursor].num == 2)//*
 
 			{
+				a = stack2[stack2_cursor - 1].num;
 				c = a * b;
 				stack2[stack2_cursor - 1].num = c;
 				stack2_cursor--;
@@ -610,6 +877,7 @@ _point postfix_operation(double x)
 			else if (postfix[postfix_cursor].num == 3)//　　/
 
 			{
+				a = stack2[stack2_cursor - 1].num;
 				if (b == 0)
 				{
 					result.exist = 0;
@@ -622,6 +890,7 @@ _point postfix_operation(double x)
 			}
 			else if(postfix[postfix_cursor].num == 4)//幂
 			{
+				a = stack2[stack2_cursor - 1].num;
 				c = _power(a,b);
 				stack2[stack2_cursor - 1].num = c;
 				stack2_cursor--;
@@ -629,17 +898,17 @@ _point postfix_operation(double x)
 			else if (postfix[postfix_cursor].num == 5)//sin
 			{
 				c = sin(b);
-				stack2[stack2_cursor - 1].num = c;
+				stack2[stack2_cursor].num = c;
 			}
 			else if (postfix[postfix_cursor].num == 6)//cos
 			{
 				c = cos(b);
-				stack2[stack2_cursor - 1].num = c;
+				stack2[stack2_cursor ].num = c;
 			}
 			else if (postfix[postfix_cursor].num == 7)//tan因为无法准确定位到π，所以不必要精准判断是否存在
 			{
 				c = tan(b);
-				stack2[stack2_cursor - 1].num = c;
+				stack2[stack2_cursor ].num = c;
 			}
 			else if (postfix[postfix_cursor].num == 8)//log [ln]
 			{
@@ -650,7 +919,7 @@ _point postfix_operation(double x)
 					break;
 				}
 				c = log(b);
-				stack2[stack2_cursor - 1].num = c;
+				stack2[stack2_cursor ].num = c;
 			}
 			else if (postfix[postfix_cursor].num == 9)//lg
 			{
@@ -661,7 +930,7 @@ _point postfix_operation(double x)
 					break;
 				}
 				c = log10(b);
-				stack2[stack2_cursor - 1].num = c;
+				stack2[stack2_cursor].num = c;
 			}
 			else if (postfix[postfix_cursor].num == 10)//sqr
 			{
@@ -672,7 +941,7 @@ _point postfix_operation(double x)
 					result.y = 0;
 					break;
 				}c = sqrt(b);
-				stack2[stack2_cursor - 1].num = c;
+				stack2[stack2_cursor ].num = c;
 			}
 			else
 			{
