@@ -35,7 +35,7 @@ struct
 {
 	long long int x;//当前中心点在窗口上的坐标
 	long long int y;
-	short shrink;//放缩    -2~10  x: 0.25~1024  y:0.1875-768
+	short shrink;//放缩    0~10  x: 0.25~1024  y:0.1875-768
 }_attributes;//绘制图像的属性
 struct {
 	int IsNull;
@@ -268,7 +268,7 @@ void xyDRAW()
 	for (k = 0; k <= 5; k++)
 	{
 		line(0, Yn[k], 800, Yn[k]);
-		swprintf(w, L"%.4lf", (double)((Yn[k] - _attributes.y) * ratio));
+		swprintf(w, L"%.4lf", (double)(-(Yn[k] - _attributes.y) * ratio));
 		outtextxy(Xf, Yn[k], w);
 	}
 	delete[] w;
@@ -586,6 +586,7 @@ void wcharTOinfix()
 			{
 				w[m] = infix_expression[n];
 				n++;
+				m++;
 			} while ('0' <= infix_expression[n] && '9' >= infix_expression[n]|| '.' == infix_expression[n]);
 			infix[t].exist = 1;
 			infix[t].prority = 0;
@@ -884,7 +885,7 @@ _point postfix_operation(double x)
 					result.y = 0;
 					break;
 				}
-				c = a * b;
+				c = a / b;
 				stack2[stack2_cursor - 1].num = c;
 				stack2_cursor--;
 			}
