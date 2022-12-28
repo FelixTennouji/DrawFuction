@@ -1,6 +1,5 @@
 ﻿//Hello ,Sion.
 //Good night ,Sion.
-//设定区
 #define _BACKGROUND_COLOR    0x444444//背景色设置
 #define _TEXT_COLOR          0xffffff//xy文字
 #define _XY_COLOR            0xb0f8ff//xy轴颜色
